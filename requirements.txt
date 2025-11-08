@@ -1,0 +1,23 @@
+# Core Dependencies
+streamlit==1.28.1
+python-dotenv==1.0.0
+SQLAlchemy==2.0.23
+Werkzeug==3.0.1
+
+# AI/ML Dependencies
+langchain==0.0.335
+google-generativeai==0.4.0
+
+# Document Processing
+pypdf==3.17.1
+python-docx==1.0.1
+
+# File Processing
+python-docx==1.0.1
+PyPDF2==3.0.1
+
+# Email
+secure-smtplib==0.2.3
+
+# Other Utilities
+numpy==1.26.2
