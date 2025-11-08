@@ -1,46 +1,13 @@
-from pymongo import MongoClient, errors
+from pymongo import MongoClient
 from datetime import datetime
 import json
 from bson import ObjectId
 from config import MONGODB_URI, DATABASE_NAME
-import urllib.parse
-import re
 
 class DatabaseManager:
     def __init__(self):
-        try:
-            # Extract credentials and host from the URI using regex to handle special characters
-            pattern = r'mongodb\+srv:\/\/([^:]+):([^@]+)@(.+)'
-            match = re.match(pattern, MONGODB_URI)
-            
-            if match:
-                username, password, host = match.groups()
-                # Encode username and password
-                encoded_username = urllib.parse.quote_plus(username)
-                encoded_password = urllib.parse.quote_plus(password)
-                
-                # Reconstruct the URI
-                encoded_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@{host}"
-                if '?' not in encoded_uri:
-                    encoded_uri += '?retryWrites=true&w=majority'
-                print(f"Using encoded URI: {encoded_uri}")
-                self.client = MongoClient(encoded_uri)
-            else:
-                # Fallback for local development
-                print("Warning: Using unmodified MongoDB URI")
-                self.client = MongoClient(MONGODB_URI)
-                
-            # Test the connection
-            self.client.admin.command('ping')
-            print("Successfully connected to MongoDB")
-            self.db = self.client[DATABASE_NAME]
-        except errors.ConnectionFailure as e:
-            print(f"Failed to connect to MongoDB: {e}")
-            raise
-        except Exception as e:
-            print(f"Error initializing database: {str(e)}")
-            print(f"Please ensure your MongoDB URI is in the format: mongodb+srv://username:password@host")
-            raise
+        self.client = MongoClient(MONGODB_URI)
+        self.db = self.client[DATABASE_NAME]
 
     def _format_job_dict(self, job):
         """Convert MongoDB job document to application format"""

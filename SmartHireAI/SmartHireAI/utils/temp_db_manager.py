@@ -1,77 +1,29 @@
-from pymongo import MongoClient, errors
+from pymongo import MongoClient
 from datetime import datetime
 import json
 from bson import ObjectId
 from config import MONGODB_URI, DATABASE_NAME
-import urllib.parse
-import re
 
 class DatabaseManager:
     def __init__(self):
-        try:
-            # Extract credentials and host from the URI using regex to handle special characters
-            pattern = r'mongodb\+srv:\/\/([^:]+):([^@]+)@(.+)'
-            match = re.match(pattern, MONGODB_URI)
-            
-            if match:
-                username, password, host = match.groups()
-                # Encode username and password
-                encoded_username = urllib.parse.quote_plus(username)
-                encoded_password = urllib.parse.quote_plus(password)
-                
-                # Reconstruct the URI
-                encoded_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@{host}"
-                if '?' not in encoded_uri:
-                    encoded_uri += '?retryWrites=true&w=majority'
-                print(f"Using encoded URI: {encoded_uri}")
-                self.client = MongoClient(encoded_uri)
-            else:
-                # Fallback for local development
-                print("Warning: Using unmodified MongoDB URI")
-                self.client = MongoClient(MONGODB_URI)
-                
-            # Test the connection
-            self.client.admin.command('ping')
-            print("Successfully connected to MongoDB")
-            self.db = self.client[DATABASE_NAME]
-        except errors.ConnectionFailure as e:
-            print(f"Failed to connect to MongoDB: {e}")
-            raise
-        except Exception as e:
-            print(f"Error initializing database: {str(e)}")
-            print(f"Please ensure your MongoDB URI is in the format: mongodb+srv://username:password@host")
-            raise
+        self.client = MongoClient(MONGODB_URI)
+        self.db = self.client[DATABASE_NAME]
 
     def _format_job_dict(self, job):
         """Convert MongoDB job document to application format"""
         if not job:
-            print("Warning: Received empty job document")
             return None
-        try:
-            # Ensure _id exists and is valid
-            if '_id' not in job:
-                print("Error: Job document missing _id field")
-                return None
-                
-            formatted_job = {
-                'id': str(job['_id']),
-                'title': job.get('title', 'Untitled Position'),
-                'salary': float(job.get('salary', 0.0)),
-                'description': job.get('description', ''),
-                'responsibilities': job.get('responsibilities', '').split('\n') if job.get('responsibilities') else [],
-                'required_skills': job.get('required_skills', '').split('\n') if job.get('required_skills') else [],
-                'qualifications': job.get('qualifications', '').split('\n') if job.get('qualifications') else [],
-                'created_at': job.get('created_at', datetime.utcnow()).isoformat(),
-                'is_active': bool(job.get('is_active', 1)),
-                'department': job.get('department', 'General'),
-                'location': job.get('location', 'Remote')
-            }
-            print(f"Successfully formatted job: {formatted_job['id']} - {formatted_job['title']}")
-            return formatted_job
-        except Exception as e:
-            print(f"Error formatting job document: {e}")
-            print(f"Job document content: {job}")
-            return None
+        return {
+            'id': str(job['_id']),
+            'title': job['title'],
+            'salary': job['salary'],
+            'description': job['description'],
+            'responsibilities': job['responsibilities'].split('\n') if job.get('responsibilities') else [],
+            'required_skills': job['required_skills'].split('\n') if job.get('required_skills') else [],
+            'qualifications': job['qualifications'].split('\n') if job.get('qualifications') else [],
+            'created_at': job['created_at'].isoformat() if job.get('created_at') else None,
+            'is_active': bool(job.get('is_active', 1))
+        }
 
     def _format_application_dict(self, app):
         """Convert MongoDB application document to application format"""
@@ -113,17 +65,8 @@ class DatabaseManager:
                 'is_active': 1
             }
             
-            # Insert the job and get its ID
             result = self.db.jobs.insert_one(job_data)
-            job_id = str(result.inserted_id)
-            
-            # Retrieve the job document and format it
-            job = self.db.jobs.find_one({'_id': ObjectId(job_id)})
-            if not job:
-                raise Exception("Failed to retrieve created job")
-                
-            # Format the job document for response
-            return self._format_job_dict(job)
+            return self.get_job(str(result.inserted_id))
         except Exception as e:
             print(f"Error creating job: {e}")
             raise
@@ -142,21 +85,9 @@ class DatabaseManager:
         try:
             query = {'is_active': 1} if active_only else {}
             jobs = list(self.db.jobs.find(query))
-            print(f"Found {len(jobs)} jobs in database")
-            
-            formatted_jobs = []
-            for job in jobs:
-                formatted_job = self._format_job_dict(job)
-                if formatted_job:
-                    formatted_jobs.append(formatted_job)
-                else:
-                    print(f"Warning: Failed to format job: {job.get('_id', 'unknown id')}")
-            
-            print(f"Successfully formatted {len(formatted_jobs)} jobs")
-            return formatted_jobs
+            return [self._format_job_dict(job) for job in jobs]
         except Exception as e:
             print(f"Error getting all jobs: {e}")
-            print("Returning empty list")
             return []
 
     def update_job(self, job_id, **kwargs):
