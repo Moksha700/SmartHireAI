@@ -1,13 +1,37 @@
-from pymongo import MongoClient
+from pymongo import MongoClient, errors
 from datetime import datetime
 import json
 from bson import ObjectId
 from config import MONGODB_URI, DATABASE_NAME
+import urllib.parse
 
 class DatabaseManager:
     def __init__(self):
-        self.client = MongoClient(MONGODB_URI)
-        self.db = self.client[DATABASE_NAME]
+        try:
+            # Parse the URI to ensure proper encoding
+            uri_parts = urllib.parse.urlparse(MONGODB_URI)
+            username = urllib.parse.quote_plus(uri_parts.username) if uri_parts.username else None
+            password = urllib.parse.quote_plus(uri_parts.password) if uri_parts.password else None
+            netloc = uri_parts.netloc.split('@')[-1]  # Get the host:port part
+            
+            # Reconstruct the URI with encoded components
+            encoded_uri = f"mongodb+srv://{username}:{password}@{netloc}"
+            if uri_parts.path:
+                encoded_uri += uri_parts.path
+            if uri_parts.query:
+                encoded_uri += f"?{uri_parts.query}"
+                
+            self.client = MongoClient(encoded_uri)
+            # Test the connection
+            self.client.admin.command('ping')
+            print("Successfully connected to MongoDB")
+            self.db = self.client[DATABASE_NAME]
+        except errors.ConnectionFailure as e:
+            print(f"Failed to connect to MongoDB: {e}")
+            raise
+        except Exception as e:
+            print(f"Error initializing database: {e}")
+            raise
 
     def _format_job_dict(self, job):
         """Convert MongoDB job document to application format"""
