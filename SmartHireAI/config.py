@@ -19,7 +19,7 @@ SMTP_PORT = 587
 
 # Database Configuration
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
-DATABASE_NAME = os.getenv("DATABASE_NAME", "smarthire")
+DATABASE_NAME = os.getenv("DATABASE_NAME", "Cluster0")
 
 # Application Settings
 FIT_SCORE_THRESHOLD = 70  # Default threshold for candidate selection
